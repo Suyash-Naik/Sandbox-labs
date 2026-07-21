@@ -1,136 +1,212 @@
-#Import necessary libraries
-import os
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-""" BinnedIntensityPlotter class for processing and plotting binned intensity data made by Suyash v 26/05/2025
-This class reads intensity data from CSV files, bins the data based on specified bin edges, and plots the binned data.
-It also allows for treatment-specific data handling and visualization.
-The class includes methods for:
-- Initializing with file paths, bin edges, and treatment mapping
-- Processing data from CSV files to extract and bin intensity values
-- Importing binned data from a DataFrame
-- Plotting the binned intensity data with treatment differentiation
-- Getting treatment names based on position numbers
-- Averaging different experiments and treatments to create a binned intensity DataFrame
-- Changing the parameter for plotting (e.g., Mean, Median, etc.) is also possible as long as it is a Series vs Value function 
+"""BinnedIntensityPlotter module for processing and plotting binned intensity data.
+
+This module reads intensity data from CSV files, bins the data based on specified bin edges,
+and plots the binned data with treatment-specific statistics (mean and SEM).
 """
+
+from pathlib import Path
+import re
+from typing import Dict, List, Union, Optional, Sequence
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
 class BinnedIntensityPlotter:
-    def __init__(self, intensity_files, bin_edges, save_folder, treatment_map,timeframe : float):
+    """Class to load, bin, and visualize bio-image intensity time-series data across experimental conditions."""
+
+    def __init__(
+        self,
+        intensity_files: Sequence[Union[str, Path]],
+        bin_edges: Sequence[float],
+        save_folder: Union[str, Path],
+        treatment_map: Dict[str, List[int]],
+        timeframe: float,
+        start_hpf: float = 4.0,
+    ) -> None:
+        """Initialize the BinnedIntensityPlotter.
+
+        Args:
+            intensity_files: List of file paths to raw intensity CSV files.
+            bin_edges: Bin boundaries for time binning (in hpf).
+            save_folder: Path to directory where output data/plots will be saved.
+            treatment_map: Dictionary mapping treatment names to position numbers,
+                e.g. {"Control": [3, 5], "K4K8MO": [6, 7, 9]}.
+            timeframe: Frame interval in seconds.
+            start_hpf: Initial start time in hours post fertilization (default 4.0).
         """
-        intensity_files: list of csv file paths
-        bin_edges: array-like, bin edges for time binning
-        save_folder: str, folder to save plots
-        treatment_map: dict, e.g. {"Control": [3, 5], "K4K8MO": [6, 7, 9]}
-        """
-        self.intensity_files = intensity_files
-        self.bin_edges = bin_edges
-        self.save_folder = save_folder
+        self.intensity_files = [Path(f) for f in intensity_files]
+        self.bin_edges = np.asanyarray(bin_edges)
+        self.save_folder = Path(save_folder)
         self.treatment_map = treatment_map
+        self.timeframe = float(timeframe)
+        self.start_hpf = float(start_hpf)
+
         self.intensity_data = pd.DataFrame()
         self.binned_intensity_data = pd.DataFrame()
-        self.treatment_indices = {k: [] for k in treatment_map}
-        self.binned_intensity_data["Time (hpf)"] = []
-        self.timeframe = timeframe
-        
-    def get_treatment(self, pos_number):
-        """
-        Returns the treatment name for a given position number.
-        """
+        self.treatment_indices: Dict[str, List[str]] = {k: [] for k in treatment_map}
+
+    def get_treatment(self, pos_number: int) -> Optional[str]:
+        """Return the treatment name for a given position number."""
         for treatment, pos_list in self.treatment_map.items():
             if pos_number in pos_list:
                 return treatment
         return None
-    
-    def process_data(self,plotparam:str="Mean"):
-        """
-        Reads intensity files, assigns treatments, bins data, and stores results.
+
+    def process_data(self, plotparam: str = "Mean") -> pd.DataFrame:
+        """Read intensity files, assign treatments, bin data, and save binned results.
+
+        Args:
+            plotparam: Column name in input CSVs to aggregate (default: 'Mean').
+
+        Returns:
+            DataFrame containing binned intensity data across all treatments and positions.
         """
         bin_centers = 0.5 * (self.bin_edges[1:] + self.bin_edges[:-1])
         if "Time (hpf)" not in self.binned_intensity_data.columns:
             self.binned_intensity_data["Time (hpf)"] = bin_centers
 
-        for file in self.intensity_files:
-            date=file.split("/")[-1].split("_")[0]
-            posstr=file.split("Pos")[1][0:3]
-            posnumber = int(posstr)
-            treatment = self.get_treatment(posnumber)
-            if treatment is None:
-                print(f"Treatment not found for position {posnumber} in file {file}. Skipping.")
+        dfs_to_concat = []
+
+        for file_path in self.intensity_files:
+            file_name = file_path.name
+            date = file_name.split("_")[0]
+
+            # Use regex to extract position number safely from file path/name (e.g. Pos003 or Pos3)
+            pos_match = re.search(r"Pos(\d+)", file_name, re.IGNORECASE)
+            if not pos_match:
+                print(f"Warning: Could not extract position number from '{file_name}'. Skipping.")
                 continue
-            data= pd.read_csv(file)
-            data["Label"] = f"{date}_Pos{posstr}"
+
+            pos_str = pos_match.group(1)
+            pos_number = int(pos_str)
+            treatment = self.get_treatment(pos_number)
+            if treatment is None:
+                print(f"Treatment not found for position {pos_number} in file '{file_path}'. Skipping.")
+                continue
+
+            data = pd.read_csv(file_path)
+            data["Label"] = f"{date}_Pos{pos_str}"
             data["Treatment"] = treatment
-            # Change the first " " column to time in hours post fertilization (hpf) [timeframe in seconds +4.5 hrs]
-            data["Time"] = [(x - 1) * self.timeframe/60/60+4 for x in data[" "]]
-            plt.plot(data["Time"], data[plotparam], label=posstr, alpha=0.5)
-            plt.legend()
-            self.intensity_data = pd.concat([self.intensity_data, data])
-            # Bin the data
-            bin_averages = [
-                    np.mean(data["Mean"][(data["Time"] > self.bin_edges[i]) & (data["Time"] < self.bin_edges[i + 1])])
-                    for i in range(len(bin_centers))
-                ]
-            col_name = f"{treatment}_{plotparam}_{date}_Pos{posstr}"
-            #check if the column is new
+
+            # Determine frame index column (either first unnamed column or 'Frame')
+            frame_col = data.columns[0]
+            if frame_col.strip() == "" or "unnamed" in frame_col.lower():
+                frame_idx = data[frame_col]
+            elif "frame" in [c.lower() for c in data.columns]:
+                frame_idx = data[[c for c in data.columns if c.lower() == "frame"][0]]
+            else:
+                frame_idx = data.iloc[:, 0]
+
+            # Calculate time in hours post fertilization (hpf)
+            data["Time"] = (frame_idx - 1) * (self.timeframe / 3600.0) + self.start_hpf
+            dfs_to_concat.append(data)
+
+            # Bin the data using pandas cut / groupby for efficient and clear computation
+            binned_groups = data.groupby(
+                pd.cut(data["Time"], bins=self.bin_edges, include_lowest=True),
+                observed=False,
+            )[plotparam].mean()
+
+            bin_averages = binned_groups.to_numpy()
+            col_name = f"{treatment}_{plotparam}_{date}_Pos{pos_str}"
+
             if col_name not in self.binned_intensity_data.columns:
                 self.binned_intensity_data[col_name] = bin_averages
                 self.treatment_indices[treatment].append(col_name)
             else:
-                print(f"Column {col_name} already exists in binned intensity data. Skipping.")
-        # Ensure "Time (hpf)" is the first column
-        self.binned_intensity_data = self.binned_intensity_data[["Time (hpf)"] + [col for col in self.binned_intensity_data.columns if col != "Time (hpf)"]]
-        #export binned intensity data 
-        self.binned_intensity_data.to_csv(os.path.join(self.save_folder, "binned_intensity_data.csv"), index=False)
+                print(f"Column '{col_name}' already exists in binned intensity data. Skipping.")
+
+        if dfs_to_concat:
+            self.intensity_data = pd.concat([self.intensity_data] + dfs_to_concat, ignore_index=True)
+
+        # Reorder columns to ensure "Time (hpf)" is first
+        cols = ["Time (hpf)"] + [c for c in self.binned_intensity_data.columns if c != "Time (hpf)"]
+        self.binned_intensity_data = self.binned_intensity_data[cols]
+
+        self.save_folder.mkdir(parents=True, exist_ok=True)
+        self.binned_intensity_data.to_csv(self.save_folder / "binned_intensity_data.csv", index=False)
         return self.binned_intensity_data
-    
-    def import_data(self, binned_intdf):
-        """ Imports binned intensity data from a DataFrame.
-        binned_intdf: DataFrame containing binned intensity data
+
+    def import_data(self, binned_intdf: pd.DataFrame) -> None:
+        """Import pre-processed binned intensity data from a DataFrame.
+
+        Args:
+            binned_intdf: DataFrame containing binned intensity data with 'Time (hpf)' column.
         """
-        self.binned_intensity_data = binned_intdf
-        # Extract treatment indices from the DataFrame columns
-        for col in self.binned_intensity_data.columns:
-            if col.startswith("Control_"):
-                self.treatment_indices["Control"].append(col)
-            elif col.startswith("K4K8MO_"):
-                self.treatment_indices["K4K8MO"].append(col)
-        # Ensure "Time (hpf)" is the first column
-        if "Time (hpf)" not in self.binned_intensity_data.columns:
+        if "Time (hpf)" not in binned_intdf.columns:
             raise ValueError("DataFrame must contain 'Time (hpf)' column.")
-    def plot_data(self):
-        fig, ax = plt.subplots(figsize=(7, 5.3))
-        plt.rcParams['figure.dpi'] = 100
-        plt.rcParams['font.size'] = 24
-        plt.rcParams['savefig.dpi'] = 300
-        plt.rcParams['font.family'] = 'sans-serif'
-        plt.rcParams['font.sans-serif'] = 'Arial'
-        plt.gca().spines['right'].set_color('none')
-        plt.gca().spines['top'].set_color('none')
-        ax.set_xlim(4.0, 10.0)
-        ax.set_xticks(np.arange(4.0, 10.0, 0.5),minor=True)
-        #ax.set_xticklabels(["4.5", "", "", "", "5.5", "", "", "", "6.5", "", "", "", "7.5", "", "", "", "8.5", ""])
-        ax.set_yticks(np.arange(0, 470, 25), minor=True)
-        #split self.binned_intensity_data into control and k4k8
-        control_cols = self.treatment_indices.get("Control", [])
-        k4k8_cols = self.treatment_indices.get("K4K8MO", [])
-        if control_cols:
-            control_data = self.binned_intensity_data[control_cols]
-            ax.plot(self.binned_intensity_data["Time (hpf)"], control_data.mean(axis=1), color="#83bb03", linewidth=2)
+
+        self.binned_intensity_data = binned_intdf.copy()
+
+        # Dynamically classify columns into treatment groups based on prefix
+        for col in self.binned_intensity_data.columns:
+            if col == "Time (hpf)":
+                continue
+            treatment_name = col.split("_")[0]
+            if treatment_name not in self.treatment_indices:
+                self.treatment_indices[treatment_name] = []
+            if col not in self.treatment_indices[treatment_name]:
+                self.treatment_indices[treatment_name].append(col)
+
+    def plot_data(
+        self,
+        title: Optional[str] = None,
+        colors: Optional[Dict[str, str]] = None,
+        save_plot_name: Optional[str] = "binned_intensity_plot.png",
+    ) -> plt.Figure:
+        """Plot binned intensity mean and standard error of the mean (SEM) for each treatment.
+
+        Args:
+            title: Optional plot title.
+            colors: Dict mapping treatment names to hex/named colors.
+            save_plot_name: Output filename to save plot within save_folder.
+
+        Returns:
+            Matplotlib Figure object.
+        """
+        fig, ax = plt.subplots(figsize=(7, 5.3), dpi=100)
+
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+
+        time_vals = self.binned_intensity_data["Time (hpf)"]
+
+        # Default color palette if none provided
+        default_colors = ["#83bb03", "#ff7f00", "#1f77b4", "#e377c2", "#9467bd"]
+        color_map = colors or {}
+
+        for i, (treatment, cols) in enumerate(self.treatment_indices.items()):
+            if not cols:
+                continue
+
+            treatment_cols = [c for c in cols if c in self.binned_intensity_data.columns]
+            if not treatment_cols:
+                continue
+
+            treatment_data = self.binned_intensity_data[treatment_cols]
+            mean_vals = treatment_data.mean(axis=1)
+            sem_vals = treatment_data.sem(axis=1)
+
+            color = color_map.get(treatment, default_colors[i % len(default_colors)])
+
+            ax.plot(time_vals, mean_vals, label=treatment, color=color, linewidth=2)
             ax.fill_between(
-                self.binned_intensity_data["Time (hpf)"],
-                control_data.mean(axis=1) - control_data.sem(axis=1),
-                control_data.mean(axis=1) + control_data.sem(axis=1),
-                color="#83bb03", alpha=0.3
-            )
-        if k4k8_cols:
-            k4k8_data = self.binned_intensity_data[k4k8_cols]
-            ax.plot(self.binned_intensity_data["Time (hpf)"], k4k8_data.mean(axis=1), color="#ff7f00", linewidth=2)
-            ax.fill_between(
-                self.binned_intensity_data["Time (hpf)"],
-                k4k8_data.mean(axis=1) - k4k8_data.sem(axis=1),
-                k4k8_data.mean(axis=1) + k4k8_data.sem(axis=1),
-                color="#ff7f00", alpha=0.3
+                time_vals,
+                mean_vals - sem_vals,
+                mean_vals + sem_vals,
+                color=color,
+                alpha=0.3,
             )
 
-        plt.show()
+        ax.set_xlabel("Time (hpf)")
+        ax.set_ylabel("Intensity")
+        if title:
+            ax.set_title(title)
+        ax.legend(frameon=False)
+
+        self.save_folder.mkdir(parents=True, exist_ok=True)
+        if save_plot_name:
+            fig.savefig(self.save_folder / save_plot_name, dpi=300, bbox_inches="tight")
+
+        return fig
