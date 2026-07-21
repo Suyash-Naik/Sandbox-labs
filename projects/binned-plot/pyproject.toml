@@ -22,3 +22,9 @@ dependencies = [
 dev = [
     "pytest>=7.0.0"
 ]
+
+[project.scripts]
+binned-plot = "binned_plot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

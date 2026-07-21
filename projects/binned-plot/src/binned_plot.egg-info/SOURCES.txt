@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+src/binned_plot/__init__.py
+src/binned_plot/binned_plotter.py
+src/binned_plot/cli.py
+src/binned_plot.egg-info/PKG-INFO
+src/binned_plot.egg-info/SOURCES.txt
+src/binned_plot.egg-info/dependency_links.txt
+src/binned_plot.egg-info/entry_points.txt
+src/binned_plot.egg-info/requires.txt
+src/binned_plot.egg-info/top_level.txt

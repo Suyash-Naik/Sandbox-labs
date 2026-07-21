@@ -1,3 +1,17 @@
+Metadata-Version: 2.4
+Name: binned-plot
+Version: 0.1.0
+Summary: Bio-image intensity data binning and time-series visualization toolkit
+Author-email: "Dr. Suyash Naik" <suyashanaik@gmail.com>
+License: GPL-3.0-or-later
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.22.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: matplotlib>=3.5.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+
 # Binned Plot (`binned-plot`)
 
 `binned-plot` is a Python package for loading, time-binning, aggregating, and visualizing bio-image intensity data from multi-position CSV files.
