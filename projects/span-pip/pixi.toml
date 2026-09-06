@@ -1,6 +1,6 @@
 [workspace]
 channels = ["conda-forge"]
-name = "28072026_TgGAPDH_Pipetts"
+name = "28072026_Pipetts"
 platforms = ["win-64"]
 version = "0.1.0"
 
