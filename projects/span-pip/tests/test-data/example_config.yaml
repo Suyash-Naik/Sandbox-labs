@@ -14,7 +14,7 @@ experiment:
 instrument:
   Rp: 20.0        # pipette inner radius (um)
   Rcac: 367     # Embryo radius of curvature (um)
-  P_default: 500.0   # applied aspiration pressure (Pa)
+  P_default: 70.0   # applied aspiration pressure (Pa)
 
 paths:
   input_dir: tests/test-data
