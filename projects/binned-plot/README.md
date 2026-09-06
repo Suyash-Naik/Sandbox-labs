@@ -19,26 +19,24 @@ projects/binned-plot/
 
 ## Installation
 
-Install in editable mode:
+This project uses [Pixi](https://pixi.sh) for environment and dependency management. Pixi ensures you have the exact correct versions of Python, NumPy, Pandas, and Matplotlib isolated for this project.
 
-```bash
-pip install -e .
-```
+1. **Install Pixi** (if you haven't already):
+   Follow instructions at [pixi.sh](https://pixi.sh/latest/#installation)
 
-Or via `uv`:
-
-```bash
-uv pip install -e .
-```
+2. **Setup the environment & install the package**:
+   ```bash
+   pixi install
+   ```
 
 ---
 
 ## Command Line Interface (CLI) Usage
 
-After installing the package, run `binned-plot --help` or `binned-plot -h` to see all available commands and flags:
+After installing, you can run the CLI inside the pixi environment using `pixi run`:
 
 ```bash
-binned-plot --help
+pixi run binned-plot --help
 ```
 
 ### CLI Command Options
@@ -59,17 +57,22 @@ binned-plot --help
 
 1. **Process raw directory and plot**:
    ```bash
-   binned-plot -i ./data_folder -o ./output -pd -mp --treatment-map '{"Control":[3,5],"K4K8MO":[6,7]}'
+   pixi run binned-plot -i ./data_folder -o ./output -pd -mp --treatment-map '{"Control":[3,5],"K4K8MO":[6,7]}'
    ```
 
 2. **Process specific files**:
    ```bash
-   binned-plot -i sample1.csv sample2.csv -o ./output -pd -mp -tm treatment_map.json
+   pixi run binned-plot -i sample1.csv sample2.csv -o ./output -pd -mp -tm treatment_map.json
    ```
 
 3. **Re-plot from pre-binned dataset**:
    ```bash
-   binned-plot -i ./output/binned_intensity_data.csv -o ./output -mp
+   pixi run binned-plot -i ./output/binned_intensity_data.csv -o ./output -mp
+   ```
+4. **Generate sample dataset and test**:
+   ```bash
+   pixi run python generate_sample_data.py
+   pixi run binned-plot -i ./sample_data -o ./sample_output -pd -mp --treatment-map sample_treatment_map.json
    ```
 
 ---
