@@ -18,6 +18,7 @@ class Config:
     output_file: Path
     append: bool
     live_display: bool
+    theme: str = "light"
     metadata_txt: Path | None = None
     series_map_csv: Path | None = None
 
@@ -46,6 +47,7 @@ def load_config(config_path: str | Path) -> Config:
         output_file=Path(paths["output_file"]),
         append=paths.get("append", True),
         live_display=data.get("gui", {}).get("live_display", True),
+        theme=data.get("gui", {}).get("theme", "light"),
         metadata_txt=Path(paths["metadata_txt"]) if paths.get("metadata_txt") else None,
         series_map_csv=Path(paths["series_map_csv"]) if paths.get("series_map_csv") else None,
     )
