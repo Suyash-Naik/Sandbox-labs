@@ -1,0 +1,25 @@
+[workspace]
+name = "binned-plot"
+version = "0.1.0"
+description = "Bio-image intensity data binning and time-series visualization toolkit"
+authors = ["Dr. Suyash Naik <suyashanaik@gmail.com>"]
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[tasks]
+test = "pytest"
+
+[dependencies]
+python = ">=3.9"
+numpy = ">=1.22.0"
+pandas = ">=2.0.0"
+matplotlib = ">=3.5.0"
+
+[pypi-dependencies]
+binned-plot = { path = ".", editable = true }
+
+[environments]
+dev = { features = ["test"] }
+
+[feature.test.dependencies]
+pytest = ">=7.0.0"
