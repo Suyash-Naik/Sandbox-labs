@@ -51,3 +51,26 @@ def load_config(config_path: str | Path) -> Config:
         metadata_txt=Path(paths["metadata_txt"]) if paths.get("metadata_txt") else None,
         series_map_csv=Path(paths["series_map_csv"]) if paths.get("series_map_csv") else None,
     )
+
+def select_config_file(initial_dir: str | Path | None = None) -> Path | None:
+    """Open a file dialog to pick a config YAML. Returns None if cancelled.
+
+    tkinter is imported lazily so headless runs that pass --config never touch it.
+    """
+    import tkinter as tk
+    from tkinter import filedialog
+
+    root = tk.Tk()
+    root.withdraw()
+    root.update()
+    try:
+        chosen = filedialog.askopenfilename(
+            parent=root,
+            title="Select experiment config file",
+            initialdir=str(initial_dir) if initial_dir else str(Path.cwd()),
+            filetypes=[("YAML config", "*.yaml *.yml"), ("All files", "*.*")],
+        )
+    finally:
+        root.destroy()
+
+    return Path(chosen) if chosen else None

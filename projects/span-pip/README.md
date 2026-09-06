@@ -136,6 +136,14 @@ pixi run fit --config tests/test-data/example_config.yaml
 pipette-fit --config tests/test-data/example_config.yaml
 ```
 
+Omit `--config` to pick the YAML file from a graphical file browser instead:
+
+```bash
+pixi run pipette-fit
+```
+
+Cancelling the dialog exits without processing anything.
+
 ### 2. Interactive GUI Shortcuts
 
 | Action | Control / Key | Description |

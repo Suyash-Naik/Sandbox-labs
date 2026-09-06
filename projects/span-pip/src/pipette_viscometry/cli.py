@@ -2,7 +2,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from .config import load_config
+from .config import load_config, select_config_file
 from .data_io import load_curve, append_result_row
 from .metadata import parse_pip_info, load_series_map
 from .gui import InteractiveFitter
@@ -11,10 +11,18 @@ SERIES_REGEX = re.compile(r"series0*(\d+)", re.IGNORECASE)
 
 def main():
     parser = argparse.ArgumentParser(description="Pipette Viscometry Interactive Fitting Tool")
-    parser.add_argument("--config", required=True, help="Path to config YAML file")
+    parser.add_argument("--config", help="Path to config YAML file (omit to pick one in a file dialog)")
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    config_path = args.config
+    if config_path is None:
+        config_path = select_config_file()
+        if config_path is None:
+            print("No config file selected.")
+            sys.exit(0)
+        print(f"Using config: {config_path}")
+
+    cfg = load_config(config_path)
     
     # Load metadata and overrides
     meta_dict, parse_reports = parse_pip_info(cfg.metadata_txt) if cfg.metadata_txt else ({}, [])
