@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 from .config import load_config
-from .io import load_curve, append_result_row
+from .data_io import load_curve, append_result_row
 from .metadata import parse_pip_info, load_series_map
 from .gui import InteractiveFitter
 
