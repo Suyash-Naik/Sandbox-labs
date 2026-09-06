@@ -94,8 +94,8 @@ All parameters and file paths are defined in a single YAML configuration file:
 
 ```yaml
 experiment:
-  name: "28072026_TgGAPDH_Pipetts"
-  date: "2026-07-28"
+  name: "Pipetteing_zebrafish"
+  date: "2023-04-19"
   metadata_txt: "./data/PipInfo.txt"        # Optional log file
   series_map_csv: "./data/series_map.csv"   # Optional series mapping override
 
@@ -108,7 +108,7 @@ instrument:
 paths:
   input_dir: "./data"
   input_glob: "*Values*.csv"
-  output_file: "./results/ViscoResults_28072026.csv"
+  output_file: "./results/ViscoResults_19042023.csv"
   append: true
 
 gui:
